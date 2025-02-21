@@ -6,9 +6,11 @@ import { motion } from "framer-motion";
 export default function Home() {
   const [walletAddress, setWalletAddress] = useState("");
   const [message, setMessage] = useState("");
+  const [txHash, setTxHash] = useState(null);
 
   const sendTokens = async () => {
     setMessage("Processing...");
+    setTxHash(null); // Reset previous txHash
 
     try {
       const response = await fetch("/api/sendTokens", {
@@ -20,13 +22,14 @@ export default function Home() {
       const data = await response.json();
 
       if (response.ok) {
-        setMessage(`Success! Tx Hash: ${data.txHash}`);
+        setMessage("Transaction successful! Check your wallet.");
+        setTxHash(data.txHash); // Save txHash to display on screen
       } else {
         setMessage(`Error: ${data.error}`);
       }
     } catch (error) {
+      console.error("Fetch Error:", error);
       setMessage("Request failed. Try again.");
-      console.error("Error:", error);
     }
   };
 
@@ -60,9 +63,29 @@ export default function Home() {
         >
           Request Funds
         </motion.button>
+
         {message && (
           <motion.p className="text-center text-brand-blue font-medium text-base">
             {message}
+          </motion.p>
+        )}
+
+        {txHash && (
+          <motion.p
+            className="text-center text-brand-blue font-medium text-sm bg-gray-100 p-3 rounded-xl border border-gray-300 overflow-hidden truncate w-full"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5 }}
+          >
+            Transaction Hash:{" "}
+            <a
+              href={`https://secretnodes.com/pulsar/transactions/${txHash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-brand-orange font-bold underline"
+            >
+              {txHash}
+            </a>
           </motion.p>
         )}
       </motion.div>

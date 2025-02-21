@@ -24,6 +24,7 @@ export default async function handler(req, res) {
       walletAddress: wallet.address,
     });
 
+    // Execute the transaction and wait for completion
     const tx = await secretjs.tx.bank.send(
       {
         amount: [{ amount: "1000000", denom: "uscrt" }],
@@ -33,7 +34,9 @@ export default async function handler(req, res) {
       { gasLimit: 100_000, gasPriceInFeeDenom: 0.25, memo: "send tokens" }
     );
 
+    // Return the transaction hash to the frontend
     return res.status(200).json({ success: true, txHash: tx.transactionHash });
+
   } catch (error) {
     console.error("Transaction failed:", error);
     return res.status(500).json({ error: error.message });
