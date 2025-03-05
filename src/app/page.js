@@ -1,14 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 
 export default function Home() {
   const [walletAddress, setWalletAddress] = useState("");
   const [message, setMessage] = useState("");
   const [txHash, setTxHash] = useState(null);
+  const [canRequest, setCanRequest] = useState(true);
+  const recaptchaRef = useRef(null);
+
+  // Check rate limit on component mount
+  useEffect(() => {
+    const lastRequest = localStorage.getItem('lastTokenRequest');
+    if (lastRequest) {
+      const timeSinceLastRequest = Date.now() - parseInt(lastRequest);
+      const hoursSinceLastRequest = timeSinceLastRequest / (1000 * 60 * 60);
+      setCanRequest(hoursSinceLastRequest >= 24);
+    }
+  }, []);
 
   const sendTokens = async () => {
+    if (!canRequest) {
+      const lastRequest = localStorage.getItem('lastTokenRequest');
+      const nextRequestTime = new Date(parseInt(lastRequest) + 24 * 60 * 60 * 1000);
+      setMessage(`Please wait until ${nextRequestTime.toLocaleString()} before requesting again.`);
+      return;
+    }
+
+    const captchaToken = window.grecaptcha.getResponse();
+    if (!captchaToken) {
+      setMessage("Please complete the CAPTCHA verification.");
+      return;
+    }
+
     setMessage("Processing...");
     setTxHash(null); // Reset previous txHash
 
@@ -16,7 +41,10 @@ export default function Home() {
       const response = await fetch("/api/sendTokens", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ walletAddress }),
+        body: JSON.stringify({ 
+          walletAddress,
+          captchaToken 
+        }),
       });
 
       const data = await response.json();
@@ -24,12 +52,17 @@ export default function Home() {
       if (response.ok) {
         setMessage("Transaction successful! Check your wallet.");
         setTxHash(data.txHash); // Save txHash to display on screen
+        localStorage.setItem('lastTokenRequest', Date.now().toString());
+        setCanRequest(false);
+        window.grecaptcha.reset(); // Reset the CAPTCHA after successful request
       } else {
         setMessage(`Error: ${data.error}`);
+        window.grecaptcha.reset(); // Reset the CAPTCHA on error
       }
     } catch (error) {
       console.error("Fetch Error:", error);
       setMessage("Request failed. Try again.");
+      window.grecaptcha.reset(); // Reset the CAPTCHA on error
     }
   };
 
@@ -56,12 +89,22 @@ export default function Home() {
           value={walletAddress}
           onChange={(e) => setWalletAddress(e.target.value)}
           spellCheck="false"
+          disabled={!canRequest}
         />
+        <div className="flex justify-center">
+          <div
+            className="g-recaptcha"
+            data-sitekey="6LcmuOoqAAAAAJZr_A1TtihiCnJu0n-MFuHN_to1"
+          ></div>
+        </div>
         <motion.button
-          className="w-full py-3 bg-brand-orange text-white font-semibold text-lg rounded-xl transform hover:scale-105"
+          className={`w-full py-3 text-white font-semibold text-lg rounded-xl transform hover:scale-105 ${
+            canRequest ? 'bg-brand-orange' : 'bg-gray-400 cursor-not-allowed'
+          }`}
           onClick={sendTokens}
+          disabled={!canRequest}
         >
-          Request Funds
+          {canRequest ? 'Request Funds' : 'Rate Limited'}
         </motion.button>
 
         {message && (
