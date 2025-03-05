@@ -1,16 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import Script from "next/script";
 
 export default function Home() {
   const [walletAddress, setWalletAddress] = useState("");
   const [message, setMessage] = useState("");
   const [txHash, setTxHash] = useState(null);
   const [canRequest, setCanRequest] = useState(true);
-  const [isCaptchaLoaded, setIsCaptchaLoaded] = useState(false);
-  const recaptchaRef = useRef(null);
 
   // Check rate limit on component mount
   useEffect(() => {
@@ -22,46 +19,15 @@ export default function Home() {
     }
   }, []);
 
-  // Initialize reCAPTCHA on client side only
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.grecaptcha) {
-      window.grecaptcha.ready(() => {
-        setIsCaptchaLoaded(true);
-        console.log('reCAPTCHA is ready');
-      });
-    }
-  }, []);
-
   const sendTokens = async () => {
-    if (!canRequest) {
-      const lastRequest = localStorage.getItem('lastTokenRequest');
-      const nextRequestTime = new Date(parseInt(lastRequest) + 24 * 60 * 60 * 1000);
-      setMessage(`Please wait until ${nextRequestTime.toLocaleString()} before requesting again.`);
-      return;
-    }
-
-    if (!isCaptchaLoaded || !window.grecaptcha) {
-      setMessage("Please wait for CAPTCHA to load.");
-      return;
-    }
+    setMessage("Processing...");
+    setTxHash(null); // Reset previous txHash
 
     try {
-      const captchaToken = window.grecaptcha.getResponse();
-      if (!captchaToken) {
-        setMessage("Please check the 'I am not a robot' box to verify you are human.");
-        return;
-      }
-
-      setMessage("Processing...");
-      setTxHash(null); // Reset previous txHash
-
       const response = await fetch("/api/sendTokens", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          walletAddress,
-          captchaToken 
-        }),
+        body: JSON.stringify({ walletAddress }),
       });
 
       const data = await response.json();
@@ -71,26 +37,17 @@ export default function Home() {
         setTxHash(data.txHash); // Save txHash to display on screen
         localStorage.setItem('lastTokenRequest', Date.now().toString());
         setCanRequest(false);
-        window.grecaptcha.reset(); // Reset the CAPTCHA after successful request
       } else {
         setMessage(`Error: ${data.error}`);
-        window.grecaptcha.reset(); // Reset the CAPTCHA on error
       }
     } catch (error) {
       console.error("Error:", error);
       setMessage("Request failed. Try again.");
-      if (window.grecaptcha) {
-        window.grecaptcha.reset(); // Reset the CAPTCHA on error
-      }
     }
   };
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-brand-tan p-6">
-      <Script
-        src="https://www.google.com/recaptcha/api.js"
-        strategy="afterInteractive"
-      />
       <motion.h1
         className="text-5xl font-extrabold text-brand-orange mb-6 text-center"
         initial={{ opacity: 0, y: -30 }}
@@ -114,27 +71,22 @@ export default function Home() {
           spellCheck="false"
           disabled={!canRequest}
         />
-        <div className="flex justify-center">
-          {isCaptchaLoaded ? (
-            <div
-              className="g-recaptcha"
-              data-sitekey="6LcmuOoqAAAAAJZr_A1TtihiCnJu0n-MFuHN_to1"
-              data-theme="light"
-              data-size="normal"
-            />
-          ) : (
-            <div className="text-brand-blue">Loading CAPTCHA...</div>
-          )}
-        </div>
         <motion.button
           className={`w-full py-3 text-white font-semibold text-lg rounded-xl transform hover:scale-105 ${
             canRequest ? 'bg-brand-orange' : 'bg-gray-400 cursor-not-allowed'
           }`}
           onClick={sendTokens}
-          disabled={!canRequest || !isCaptchaLoaded}
+          disabled={!canRequest}
         >
-          {canRequest ? 'Request Funds' : 'Rate Limited'}
+          Request Funds
         </motion.button>
+
+        {!canRequest && (
+          <motion.p className="text-center text-brand-blue font-medium text-sm">
+            You can only request funds once every 24 hours. Please wait until{" "}
+            {new Date(parseInt(localStorage.getItem('lastTokenRequest')) + 24 * 60 * 60 * 1000).toLocaleString()}
+          </motion.p>
+        )}
 
         {message && (
           <motion.p className="text-center text-brand-blue font-medium text-base">
