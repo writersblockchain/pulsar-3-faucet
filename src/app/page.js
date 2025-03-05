@@ -8,6 +8,7 @@ export default function Home() {
   const [message, setMessage] = useState("");
   const [txHash, setTxHash] = useState(null);
   const [canRequest, setCanRequest] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Check rate limit on component mount
   useEffect(() => {
@@ -20,6 +21,9 @@ export default function Home() {
   }, []);
 
   const sendTokens = async () => {
+    if (isProcessing) return;
+    
+    setIsProcessing(true);
     setMessage("Processing...");
     setTxHash(null); // Reset previous txHash
 
@@ -42,7 +46,9 @@ export default function Home() {
       }
     } catch (error) {
       console.error("Error:", error);
-      setMessage("Request failed. Try again.");
+      setMessage("Request failed. Please try again later.");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -69,16 +75,16 @@ export default function Home() {
           value={walletAddress}
           onChange={(e) => setWalletAddress(e.target.value)}
           spellCheck="false"
-          disabled={!canRequest}
+          disabled={!canRequest || isProcessing}
         />
         <motion.button
           className={`w-full py-3 text-white font-semibold text-lg rounded-xl transform hover:scale-105 ${
-            canRequest ? 'bg-brand-orange' : 'bg-gray-400 cursor-not-allowed'
+            canRequest && !isProcessing ? 'bg-brand-orange' : 'bg-gray-400 cursor-not-allowed'
           }`}
           onClick={sendTokens}
-          disabled={!canRequest}
+          disabled={!canRequest || isProcessing}
         >
-          Request Funds
+          {isProcessing ? 'Processing...' : 'Request Funds'}
         </motion.button>
 
         {!canRequest && (

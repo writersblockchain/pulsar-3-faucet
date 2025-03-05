@@ -1,5 +1,12 @@
 import { SecretNetworkClient, Wallet } from "secretjs";
 
+export const config = {
+  api: {
+    bodyParser: true,
+  },
+  runtime: 'edge', // Use Edge Runtime for longer timeouts
+};
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method Not Allowed" });
@@ -40,6 +47,23 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error("Transaction failed:", error);
-    return res.status(500).json({ error: error.message });
+    
+    // Handle specific error types
+    if (error.message.includes("timeout")) {
+      return res.status(504).json({ 
+        error: "Transaction is taking longer than expected. Please check your wallet in a few minutes." 
+      });
+    }
+    
+    if (error.message.includes("insufficient funds")) {
+      return res.status(400).json({ 
+        error: "Insufficient funds in faucet wallet. Please try again later." 
+      });
+    }
+
+    // Generic error response
+    return res.status(500).json({ 
+      error: "Transaction failed. Please try again later." 
+    });
   }
 }
