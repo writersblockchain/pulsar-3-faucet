@@ -1,0 +1,8 @@
+{
+  "functions": {
+    "src/pages/api/sendTokens.js": {
+      "memory": 1024,
+      "maxDuration": 60
+    }
+  }
+} 

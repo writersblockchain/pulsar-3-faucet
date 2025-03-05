@@ -4,7 +4,6 @@ export const config = {
   api: {
     bodyParser: true,
   },
-  runtime: 'edge', // Use Edge Runtime for longer timeouts
 };
 
 export default async function handler(req, res) {
